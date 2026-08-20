@@ -288,12 +288,12 @@
         </div>
     </div>
 
-    <!-- Firebase SDK Modular -->
+    <!-- Firebase SDK Modular Integration -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // Firebase Configuration[cite: 3]
+        // Firebase Configuration
         const firebaseConfig = {
             apiKey: "AIzaSyCEPpKr7__jLR9moZ2mzwAaUkNGi7ysgaU",
             authDomain: "queue-bloom-event.firebaseapp.com",
@@ -303,25 +303,22 @@
             appId: "1:349353100842:web:06d9c638d0f7263a532553"
         };
 
-        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        const queueDocRef = doc(db, "queue_system", "current_state");
 
         let inputVal = "";
         let callHistory = [];
         let currentCalling = "---";
-        let isInitialLoad = true; // ป้องกันการพูดขานเสียงคิวเก่าเมื่อเริ่มเปิดเว็บ
+        let isInitialLoad = true;
 
-        // Document reference ใน Firestore
-        const queueDocRef = doc(db, "queue_system", "current_state");
-
-        // Sync ข้อมูลแบบ Real-time จาก Firestore
+        // Sync ข้อมูลแบบ Realtime ข้ามทุกเครื่อง
         onSnapshot(queueDocRef, (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 const newCalling = data.currentCalling || "---";
                 
-                // หากมีการขานคิวใหม่เข้ามา และไม่ใช่การโหลดครั้งแรก ให้พูดออกเสียง
+                // หากมีการขานคิวใหม่เข้ามา ให้พูดออกเสียง
                 if (!isInitialLoad && newCalling !== "---" && newCalling !== currentCalling) {
                     window.speak(newCalling);
                 }
@@ -330,13 +327,13 @@
                 callHistory = data.callHistory || [];
                 window.updateUI();
             } else {
-                // ถ้ายังไม่มี document ให้ทำการสร้างขึ้นมาใหม่
                 saveToFirestore("---", []);
             }
             isInitialLoad = false;
+        }, (error) => {
+            console.error("Firestore Error: ", error);
         });
 
-        // ฟังก์ชันอัปเดตข้อมูลขึ้น Firestore
         async function saveToFirestore(callingNum, historyList) {
             try {
                 await setDoc(queueDocRef, {
@@ -345,17 +342,16 @@
                     updatedAt: new Date().toISOString()
                 });
             } catch (error) {
-                console.error("Error writing to Firestore:", error);
+                console.error("Save Error: ", error);
             }
         }
 
-        // แนบฟังก์ชันกับ Window เพื่อให้เรียกใช้งานจาก HTML Onclick ได้
+        // ฟังก์ชันสลับหน้า
         window.switchPage = function(pageId, evt) {
             document.querySelectorAll('.page-section').forEach(el => el.classList.remove('active'));
             document.getElementById(pageId).classList.add('active');
             
-            const navBtns = document.querySelectorAll('.nav-btn');
-            navBtns.forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
             if (evt) evt.currentTarget.classList.add('active');
         };
 
@@ -387,7 +383,6 @@
                 ...callHistory
             ];
 
-            // บันทึกขึ้น Cloud Firestore (จะไปกระตุ้น onSnapshot และสั่งพูดอัตโนมัติ)
             saveToFirestore(formattedNum, newHistory);
             window.clearInput();
         };
@@ -408,7 +403,7 @@
 
         window.speak = function(num) {
             if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel(); // ยกเลิกเสียงเดิมก่อนหน้า
+                window.speechSynthesis.cancel();
 
                 const isThEnabled = document.getElementById('toggle-th').checked;
                 const isEnEnabled = document.getElementById('toggle-en').checked;
