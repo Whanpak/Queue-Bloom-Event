@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BLOOM - Pretzel & Coffee Queue System</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bloom-green: #5b7052;       /* สีเขียวเอกลักษณ์ของ BLOOM */
+            --bloom-dark-green: #3f4e38;  /* เขียวเข้มสำหรับปุ่ม/ตัวหนังสือ */
+            --bloom-bg: #f9f8f3;          /* ขาวครีมอุ่นๆ ฟีลคาเฟ่ */
+            --bloom-card-bg: #ffffff;
+            --bloom-cream: #f2efe6;        /* ครีมอ่อนสำหรับกรอบ/พื้นหลังย่อย */
+            --bloom-yellow: #d97706;       /* สีน้ำตาลทองอบอุ่นสำหรับสถานะคิว */
+            --bloom-red: #c95555;
+            --text-dark: #2c3527;         /* น้ำตาลเข้มปนเขียว */
+            --text-muted: #737a6f;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Prompt', -apple-system, sans-serif; }
+        body { background-color: var(--bloom-bg); color: var(--text-dark); min-height: 100vh; display: flex; flex-direction: column; }
+
+        header {
+            background-color: var(--bloom-green);
+            color: #fff;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky; top: 0; z-index: 100;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .brand-title { 
+            font-size: 1.15rem; 
+            font-weight: 700; 
+            color: #fff; 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            letter-spacing: 0.5px;
+        }
+        .brand-subtitle { font-size: 0.7rem; font-weight: 400; opacity: 0.85; display: block; }
+        
+        .nav-buttons { display: flex; gap: 6px; background: rgba(0,0,0,0.12); padding: 4px; border-radius: 20px; }
+        .nav-btn { 
+            background: transparent; 
+            color: #f2efe6; 
+            border: none; 
+            padding: 6px 14px; 
+            border-radius: 16px; 
+            font-weight: 500; 
+            font-size: 0.8rem; 
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .nav-btn.active, .nav-btn:hover { background: #fff; color: var(--bloom-dark-green); font-weight: 600; }
+
+        .container { padding: 16px 12px; max-width: 500px; margin: 0 auto; width: 100%; flex-grow: 1; }
+        .page-section { display: none; }
+        .page-section.active { display: block; }
+
+        /* Settings Panel Styles */
+        .settings-panel {
+            background: var(--bloom-card-bg);
+            border: 1px solid var(--bloom-cream);
+            border-radius: 16px;
+            padding: 14px 18px;
+            margin-bottom: 14px;
+            box-shadow: 0 4px 15px rgba(91, 112, 82, 0.05);
+        }
+        .settings-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--bloom-green);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .lang-toggle-group {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        .toggle-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.88rem;
+            font-weight: 500;
+            color: var(--text-dark);
+            cursor: pointer;
+        }
+        /* Custom Switch CSS */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 22px;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #d1d5db; transition: .3s; border-radius: 22px;
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px;
+            background-color: white; transition: .3s; border-radius: 50%;
+        }
+        input:checked + .slider { background-color: var(--bloom-green); }
+        input:checked + .slider:before { transform: translateX(18px); }
+
+        /* Keypad Styles */
+        .keypad-container {
+            background: var(--bloom-card-bg);
+            border: 1px solid var(--bloom-cream);
+            border-radius: 20px;
+            padding: 18px;
+            margin-bottom: 14px;
+            box-shadow: 0 4px 15px rgba(91, 112, 82, 0.05);
+        }
+        .keypad-display {
+            background: var(--bloom-cream);
+            color: var(--bloom-dark-green);
+            font-size: 2.2rem;
+            font-weight: 700;
+            text-align: center;
+            padding: 12px;
+            border-radius: 14px;
+            letter-spacing: 6px;
+            margin-bottom: 16px;
+            min-height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .keypad-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+        .kp-btn {
+            background: var(--bloom-bg);
+            border: 1px solid var(--bloom-cream);
+            color: var(--bloom-dark-green);
+            font-size: 1.4rem;
+            font-weight: 600;
+            padding: 14px 0;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .kp-btn:active { background: var(--bloom-cream); transform: scale(0.97); }
+        .kp-btn.action-call { background: var(--bloom-green); color: #fff; border: none; }
+        .kp-btn.action-call:active { background: var(--bloom-dark-green); }
+        .kp-btn.action-del { background: #fef2f2; color: var(--bloom-red); border: 1px solid #fee2e2; }
+
+        /* Queue Control & Cards */
+        .control-panel { 
+            background: var(--bloom-card-bg); 
+            border: 1px solid var(--bloom-cream); 
+            border-radius: 16px; 
+            padding: 14px 18px; 
+            margin-bottom: 14px; 
+            box-shadow: 0 4px 15px rgba(91, 112, 82, 0.05);
+        }
+        .status-header { display: flex; justify-content: space-between; align-items: center; }
+        .calling-big { font-size: 1.5rem; font-weight: 700; color: var(--bloom-yellow); }
+
+        .queue-list { display: flex; flex-direction: column; gap: 8px; max-height: 35vh; overflow-y: auto; }
+        .q-card { 
+            background: var(--bloom-card-bg); 
+            border: 1px solid var(--bloom-cream); 
+            border-radius: 12px; 
+            padding: 12px 16px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+        }
+        .q-card.calling { border: 2px solid var(--bloom-green); background: #f4f6f3; }
+
+        /* TV Display Styles */
+        .tv-container { text-align: center; padding: 24px 12px; }
+        .tv-title { font-size: 1.1rem; color: var(--text-muted); letter-spacing: 2px; }
+        .tv-number-big { font-size: 6.5rem; font-weight: 700; color: var(--bloom-green); line-height: 1.1; margin: 15px 0; }
+        .tv-next-list { 
+            font-size: 1.05rem; 
+            font-weight: 500; 
+            color: var(--bloom-dark-green); 
+            background: var(--bloom-card-bg); 
+            padding: 16px; 
+            border-radius: 16px; 
+            border: 1px dashed var(--bloom-green); 
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="brand-title">
+            <i class="fa-solid fa-cookie-bite"></i>
+            <div>
+                BLOOM
+                <span class="brand-subtitle">PRETZEL & COFFEE</span>
+            </div>
+        </div>
+        <div class="nav-buttons">
+            <button class="nav-btn active" onclick="switchPage('keypad-sys')">เรียกคิว</button>
+            <button class="nav-btn" onclick="switchPage('tv-sys')">จอ TV</button>
+            <button class="nav-btn" onclick="switchPage('report-sys')">ประวัติ</button>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Keypad Page -->
+        <div id="keypad-sys" class="page-section active">
+
+            <!-- Panel ตั้งค่าภาษาประกาศเสียง -->
+            <div class="settings-panel">
+                <div class="settings-title"><i class="fa-solid fa-volume-high"></i> ตั้งค่าภาษาประกาศเสียง</div>
+                <div class="lang-toggle-group">
+                    <label class="toggle-item">
+                        <span class="switch">
+                            <input type="checkbox" id="toggle-th" checked>
+                            <span class="slider"></span>
+                        </span>
+                        ภาษาไทย (TH)
+                    </label>
+
+                    <label class="toggle-item">
+                        <span class="switch">
+                            <input type="checkbox" id="toggle-en" checked>
+                            <span class="slider"></span>
+                        </span>
+                        English (EN)
+                    </label>
+                </div>
+            </div>
+
+            <div class="keypad-container">
+                <div class="keypad-display" id="kp-input">---</div>
+                <div class="keypad-grid">
+                    <button class="kp-btn" onclick="pressNum('1')">1</button>
+                    <button class="kp-btn" onclick="pressNum('2')">2</button>
+                    <button class="kp-btn" onclick="pressNum('3')">3</button>
+                    <button class="kp-btn" onclick="pressNum('4')">4</button>
+                    <button class="kp-btn" onclick="pressNum('5')">5</button>
+                    <button class="kp-btn" onclick="pressNum('6')">6</button>
+                    <button class="kp-btn" onclick="pressNum('7')">7</button>
+                    <button class="kp-btn" onclick="pressNum('8')">8</button>
+                    <button class="kp-btn" onclick="pressNum('9')">9</button>
+                    <button class="kp-btn action-del" onclick="clearInput()"><i class="fa-solid fa-backspace"></i></button>
+                    <button class="kp-btn" onclick="pressNum('0')">0</button>
+                    <button class="kp-btn action-call" onclick="callKeypadNum()"><i class="fa-solid fa-bullhorn"></i></button>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <div class="status-header">
+                    <div>คิวล่าสุดที่เรียก: <span class="calling-big" id="current-call-display">---</span></div>
+                    <button onclick="repeatCall()" style="background:var(--bloom-green); color:#fff; border:none; padding:8px 14px; border-radius:20px; font-weight:600; font-size:0.85rem; cursor:pointer;"><i class="fa-solid fa-rotate-right"></i> เรียกซ้ำ</button>
+                </div>
+            </div>
+
+            <div class="queue-list" id="queue-item-container"></div>
+        </div>
+
+        <!-- TV Display Page -->
+        <div id="tv-sys" class="page-section">
+            <div class="tv-container">
+                <div class="tv-title">NOW SERVING / ขอเชิญหมายเลข</div>
+                <div class="tv-number-big" id="tv-current-q">---</div>
+                <div class="tv-next-list">
+                    คิวที่ผ่านมาก่อนหน้า: <span id="tv-prev-q">---</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- History Page -->
+        <div id="report-sys" class="page-section">
+            <div class="settings-panel">
+                <h3 style="color:var(--bloom-green); font-size:1rem; margin-bottom:10px;"><i class="fa-solid fa-list-check"></i> ประวัติการเรียกคิววันนี้</h3>
+                <p style="margin-bottom:12px; color:var(--text-muted); font-size:0.9rem;">รวมเรียกคิวทั้งหมด: <b id="rpt-total" style="color:var(--bloom-dark-green); font-size:1.1rem;">0</b> ครั้ง</p>
+                <button onclick="resetHistory()" style="background:#fef2f2; color:var(--bloom-red); border:1px solid #fee2e2; padding:8px 16px; border-radius:12px; font-weight:600; cursor:pointer; font-size:0.85rem;"><i class="fa-solid fa-trash"></i> ล้างประวัติทั้งหมด</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let inputVal = "";
+        let callHistory = [];
+        let currentCalling = "---";
+
+        function switchPage(pageId) {
+            document.querySelectorAll('.page-section').forEach(el => el.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+            
+            // Toggle active state for nav buttons
+            const navBtns = document.querySelectorAll('.nav-btn');
+            navBtns.forEach(btn => btn.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+        }
+
+        function pressNum(num) {
+            if (inputVal.length < 4) {
+                inputVal += num;
+                updateDisplay();
+            }
+        }
+
+        function clearInput() {
+            inputVal = "";
+            updateDisplay();
+        }
+
+        function updateDisplay() {
+            document.getElementById('kp-input').innerText = inputVal || "---";
+        }
+
+        function callKeypadNum() {
+            if (!inputVal) return alert('กรุณาระบุตัวเลขคิว');
+
+            const formattedNum = inputVal.padStart(3, '0');
+            currentCalling = formattedNum;
+
+            callHistory.unshift({
+                number: formattedNum,
+                time: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+            });
+
+            speak(formattedNum);
+            clearInput();
+            updateUI();
+        }
+
+        function repeatCall() {
+            if (currentCalling !== "---") {
+                speak(currentCalling);
+            } else {
+                alert('ยังไม่มีคิวถูกเรียก');
+            }
+        }
+
+        function resetHistory() {
+            if (confirm('ต้องการล้างประวัติการเรียกคิวใช่หรือไม่?')) {
+                callHistory = [];
+                currentCalling = "---";
+                updateUI();
+            }
+        }
+
+        function speak(num) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel(); // ยกเลิกเสียงเดิมก่อนหน้า
+
+                const isThEnabled = document.getElementById('toggle-th').checked;
+                const isEnEnabled = document.getElementById('toggle-en').checked;
+
+                // 1. ประกาศภาษาไทย
+                if (isThEnabled) {
+                    let msgTH = new SpeechSynthesisUtterance(`ขอเชิญหมายเลข ${num} รับ Soft Pretzel อบร้อนๆที่เคาน์เตอร์ได้เลยนะคะ`);
+                    msgTH.lang = 'th-TH';
+                    msgTH.pitch = 1.1; 
+                    msgTH.rate = 0.95; 
+                    window.speechSynthesis.speak(msgTH);
+                }
+
+                // 2. ประกาศภาษาอังกฤษ
+                if (isEnEnabled) {
+                    let msgEN = new SpeechSynthesisUtterance(`Number ${num}, your freshly baked Soft Pretzel is ready at the counter.`);
+                    msgEN.lang = 'en-US';
+                    msgEN.pitch = 1.1; 
+                    msgEN.rate = 0.95; 
+                    window.speechSynthesis.speak(msgEN);
+                }
+            }
+        }
+
+        function updateUI() {
+            document.getElementById('current-call-display').innerText = currentCalling;
+            document.getElementById('tv-current-q').innerText = currentCalling;
+            
+            const prevList = callHistory.slice(1, 4).map(h => h.number).join(', ');
+            document.getElementById('tv-prev-q').innerText = prevList || "---";
+
+            const container = document.getElementById('queue-item-container');
+            container.innerHTML = '';
+
+            callHistory.forEach((q, index) => {
+                const div = document.createElement('div');
+                div.className = `q-card ${index === 0 ? 'calling' : ''}`;
+                div.innerHTML = `
+                    <div>
+                        <b style="color:var(--bloom-dark-green)">หมายเลข ${q.number}</b>
+                        <div style="font-size:0.75rem; color:var(--text-muted);">เรียกเมื่อ ${q.time}</div>
+                    </div>
+                    <div>
+                        <button onclick="speak('${q.number}')" style="background:var(--bloom-bg); color:var(--bloom-dark-green); border:1px solid var(--bloom-cream); padding:5px 12px; border-radius:12px; font-size:0.8rem; font-weight:600; cursor:pointer;">เรียกซ้ำ</button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+
+            document.getElementById('rpt-total').innerText = callHistory.length;
+        }
+    </script>
+</body>
+</html>
