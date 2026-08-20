@@ -207,9 +207,9 @@
             </div>
         </div>
         <div class="nav-buttons">
-            <button class="nav-btn active" onclick="switchPage('keypad-sys')">เรียกคิว</button>
-            <button class="nav-btn" onclick="switchPage('tv-sys')">จอ TV</button>
-            <button class="nav-btn" onclick="switchPage('report-sys')">ประวัติ</button>
+            <button class="nav-btn active" onclick="switchPage('keypad-sys', event)">เรียกคิว</button>
+            <button class="nav-btn" onclick="switchPage('tv-sys', event)">จอ TV</button>
+            <button class="nav-btn" onclick="switchPage('report-sys', event)">ประวัติ</button>
         </div>
     </header>
 
@@ -288,77 +288,131 @@
         </div>
     </div>
 
-    <script>
+    <!-- Firebase SDK Modular -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // Firebase Configuration[cite: 3]
+        const firebaseConfig = {
+            apiKey: "AIzaSyCEPpKr7__jLR9moZ2mzwAaUkNGi7ysgaU",
+            authDomain: "queue-bloom-event.firebaseapp.com",
+            projectId: "queue-bloom-event",
+            storageBucket: "queue-bloom-event.firebasestorage.app",
+            messagingSenderId: "349353100842",
+            appId: "1:349353100842:web:06d9c638d0f7263a532553"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
         let inputVal = "";
         let callHistory = [];
         let currentCalling = "---";
+        let isInitialLoad = true; // ป้องกันการพูดขานเสียงคิวเก่าเมื่อเริ่มเปิดเว็บ
 
-        function switchPage(pageId) {
+        // Document reference ใน Firestore
+        const queueDocRef = doc(db, "queue_system", "current_state");
+
+        // Sync ข้อมูลแบบ Real-time จาก Firestore
+        onSnapshot(queueDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                const newCalling = data.currentCalling || "---";
+                
+                // หากมีการขานคิวใหม่เข้ามา และไม่ใช่การโหลดครั้งแรก ให้พูดออกเสียง
+                if (!isInitialLoad && newCalling !== "---" && newCalling !== currentCalling) {
+                    window.speak(newCalling);
+                }
+
+                currentCalling = newCalling;
+                callHistory = data.callHistory || [];
+                window.updateUI();
+            } else {
+                // ถ้ายังไม่มี document ให้ทำการสร้างขึ้นมาใหม่
+                saveToFirestore("---", []);
+            }
+            isInitialLoad = false;
+        });
+
+        // ฟังก์ชันอัปเดตข้อมูลขึ้น Firestore
+        async function saveToFirestore(callingNum, historyList) {
+            try {
+                await setDoc(queueDocRef, {
+                    currentCalling: callingNum,
+                    callHistory: historyList,
+                    updatedAt: new Date().toISOString()
+                });
+            } catch (error) {
+                console.error("Error writing to Firestore:", error);
+            }
+        }
+
+        // แนบฟังก์ชันกับ Window เพื่อให้เรียกใช้งานจาก HTML Onclick ได้
+        window.switchPage = function(pageId, evt) {
             document.querySelectorAll('.page-section').forEach(el => el.classList.remove('active'));
             document.getElementById(pageId).classList.add('active');
             
-            // Toggle active state for nav buttons
             const navBtns = document.querySelectorAll('.nav-btn');
             navBtns.forEach(btn => btn.classList.remove('active'));
-            event.currentTarget.classList.add('active');
-        }
+            if (evt) evt.currentTarget.classList.add('active');
+        };
 
-        function pressNum(num) {
+        window.pressNum = function(num) {
             if (inputVal.length < 4) {
                 inputVal += num;
-                updateDisplay();
+                window.updateDisplay();
             }
-        }
+        };
 
-        function clearInput() {
+        window.clearInput = function() {
             inputVal = "";
-            updateDisplay();
-        }
+            window.updateDisplay();
+        };
 
-        function updateDisplay() {
+        window.updateDisplay = function() {
             document.getElementById('kp-input').innerText = inputVal || "---";
-        }
+        };
 
-        function callKeypadNum() {
+        window.callKeypadNum = function() {
             if (!inputVal) return alert('กรุณาระบุตัวเลขคิว');
 
             const formattedNum = inputVal.padStart(3, '0');
-            currentCalling = formattedNum;
+            const newHistory = [
+                {
+                    number: formattedNum,
+                    time: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+                },
+                ...callHistory
+            ];
 
-            callHistory.unshift({
-                number: formattedNum,
-                time: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
-            });
+            // บันทึกขึ้น Cloud Firestore (จะไปกระตุ้น onSnapshot และสั่งพูดอัตโนมัติ)
+            saveToFirestore(formattedNum, newHistory);
+            window.clearInput();
+        };
 
-            speak(formattedNum);
-            clearInput();
-            updateUI();
-        }
-
-        function repeatCall() {
+        window.repeatCall = function() {
             if (currentCalling !== "---") {
-                speak(currentCalling);
+                window.speak(currentCalling);
             } else {
                 alert('ยังไม่มีคิวถูกเรียก');
             }
-        }
+        };
 
-        function resetHistory() {
+        window.resetHistory = function() {
             if (confirm('ต้องการล้างประวัติการเรียกคิวใช่หรือไม่?')) {
-                callHistory = [];
-                currentCalling = "---";
-                updateUI();
+                saveToFirestore("---", []);
             }
-        }
+        };
 
-        function speak(num) {
+        window.speak = function(num) {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel(); // ยกเลิกเสียงเดิมก่อนหน้า
 
                 const isThEnabled = document.getElementById('toggle-th').checked;
                 const isEnEnabled = document.getElementById('toggle-en').checked;
 
-                // 1. ประกาศภาษาไทย
                 if (isThEnabled) {
                     let msgTH = new SpeechSynthesisUtterance(`ขอเชิญหมายเลข ${num} รับ Soft Pretzel อบร้อนๆที่เคาน์เตอร์ได้เลยนะคะ`);
                     msgTH.lang = 'th-TH';
@@ -367,7 +421,6 @@
                     window.speechSynthesis.speak(msgTH);
                 }
 
-                // 2. ประกาศภาษาอังกฤษ
                 if (isEnEnabled) {
                     let msgEN = new SpeechSynthesisUtterance(`Number ${num}, your freshly baked Soft Pretzel is ready at the counter.`);
                     msgEN.lang = 'en-US';
@@ -376,9 +429,9 @@
                     window.speechSynthesis.speak(msgEN);
                 }
             }
-        }
+        };
 
-        function updateUI() {
+        window.updateUI = function() {
             document.getElementById('current-call-display').innerText = currentCalling;
             document.getElementById('tv-current-q').innerText = currentCalling;
             
@@ -404,7 +457,7 @@
             });
 
             document.getElementById('rpt-total').innerText = callHistory.length;
-        }
+        };
     </script>
 </body>
 </html>
