@@ -154,17 +154,6 @@
         .kp-btn.action-call:active { background: var(--bloom-dark-green); }
         .kp-btn.action-del { background: #fef2f2; color: var(--bloom-red); border: 1px solid #fee2e2; }
 
-        .control-panel { 
-            background: var(--bloom-card-bg); 
-            border: 1px solid var(--bloom-cream); 
-            border-radius: 16px; 
-            padding: 14px 18px; 
-            margin-bottom: 14px; 
-            box-shadow: 0 4px 15px rgba(91, 112, 82, 0.05);
-        }
-        .status-header { display: flex; justify-content: space-between; align-items: center; }
-        .calling-big { font-size: 1.5rem; font-weight: 700; color: var(--bloom-yellow); }
-
         .queue-list { display: flex; flex-direction: column; gap: 8px; }
         .q-card { 
             background: var(--bloom-card-bg); 
@@ -254,13 +243,7 @@
                 </div>
             </div>
 
-            <div class="control-panel">
-                <div class="status-header">
-                    <div>คิวล่าสุดที่เรียก: <span class="calling-big" id="current-call-display">---</span></div>
-                    <button onclick="repeatCall()" style="background:var(--bloom-green); color:#fff; border:none; padding:8px 14px; border-radius:20px; font-weight:600; font-size:0.85rem; cursor:pointer;"><i class="fa-solid fa-rotate-right"></i> เรียกซ้ำ</button>
-                </div>
-            </div>
-
+            <!-- แสดงรายการคิวล่าสุด (สูงสุด 5 คิว) -->
             <div class="queue-list" id="queue-item-container"></div>
         </div>
 
@@ -316,11 +299,13 @@
                 const data = docSnap.data();
                 const newCalling = data.currentCalling || "---";
                 const lastAction = data.lastAction || "";
+                const actionTime = data.actionTime || 0;
 
-                // พูดออกเสียงเฉพาะการกดปุ่ม "เรียกคิวใหม่" หรือ "เรียกซ้ำ" เท่านั้น
                 if (!isInitialLoad && (lastAction === 'call' || lastAction === 'repeat')) {
-                    if (newCalling !== "---") {
-                        window.speak(newCalling);
+                    if (Date.now() - actionTime < 3000) {
+                        if (newCalling !== "---") {
+                            window.speak(newCalling);
+                        }
                     }
                 }
 
@@ -341,6 +326,7 @@
                     currentCalling: callingNum,
                     callHistory: historyList,
                     lastAction: actionType,
+                    actionTime: Date.now(),
                     updatedAt: new Date().toISOString()
                 });
             } catch (error) {
@@ -372,7 +358,6 @@
             document.getElementById('kp-input').innerText = inputVal || "---";
         };
 
-        // กดปุ่มประกาศคิว -> ส่ง action เป็น 'call'
         window.callKeypadNum = function() {
             if (!inputVal) return alert('กรุณาระบุตัวเลขคิว');
 
@@ -391,7 +376,6 @@
             window.clearInput();
         };
 
-        // กดปุ่มรับสินค้า -> ส่ง action เป็น 'complete' (เงียบ ไม่มีเสียง)
         window.completeQueue = function(index) {
             if (callHistory[index]) {
                 callHistory[index].status = 'completed';
@@ -400,10 +384,10 @@
             }
         };
 
-        // กดปุ่มเรียกซ้ำ -> ส่ง action เป็น 'repeat'
         window.repeatCall = function(num = null) {
             const targetNum = num || currentCalling;
             if (targetNum !== "---") {
+                window.speak(targetNum);
                 saveToFirestore(targetNum, callHistory, 'repeat');
             } else {
                 alert('ยังไม่มีคิวถูกเรียก');
@@ -466,7 +450,6 @@
         }
 
         window.updateUI = function() {
-            document.getElementById('current-call-display').innerText = currentCalling;
             document.getElementById('tv-current-q').innerText = currentCalling;
             
             const prevList = callHistory.slice(1, 4).map(h => h.number).join(', ');
