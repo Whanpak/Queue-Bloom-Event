@@ -8,14 +8,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bloom-green: #5b7052;       /* สีเขียวเอกลักษณ์ของ BLOOM */
-            --bloom-dark-green: #3f4e38;  /* เขียวเข้มสำหรับปุ่ม/ตัวหนังสือ */
-            --bloom-bg: #f9f8f3;          /* ขาวครีมอุ่นๆ ฟีลคาเฟ่ */
+            --bloom-green: #5b7052;
+            --bloom-dark-green: #3f4e38;
+            --bloom-bg: #f9f8f3;
             --bloom-card-bg: #ffffff;
-            --bloom-cream: #f2efe6;        /* ครีมอ่อนสำหรับกรอบ/พื้นหลังย่อย */
-            --bloom-yellow: #d97706;       /* สีน้ำตาลทองอบอุ่นสำหรับสถานะคิว */
+            --bloom-cream: #f2efe6;
+            --bloom-yellow: #d97706;
             --bloom-red: #c95555;
-            --text-dark: #2c3527;         /* น้ำตาลเข้มปนเขียว */
+            --text-dark: #2c3527;
             --text-muted: #737a6f;
         }
 
@@ -57,11 +57,10 @@
         }
         .nav-btn.active, .nav-btn:hover { background: #fff; color: var(--bloom-dark-green); font-weight: 600; }
 
-        .container { padding: 16px 12px; max-width: 500px; margin: 0 auto; width: 100%; flex-grow: 1; }
+        .container { padding: 16px 12px; max-width: 550px; margin: 0 auto; width: 100%; flex-grow: 1; }
         .page-section { display: none; }
         .page-section.active { display: block; }
 
-        /* Settings Panel Styles */
         .settings-panel {
             background: var(--bloom-card-bg);
             border: 1px solid var(--bloom-cream);
@@ -93,7 +92,6 @@
             color: var(--text-dark);
             cursor: pointer;
         }
-        /* Custom Switch CSS */
         .switch {
             position: relative;
             display: inline-block;
@@ -112,7 +110,6 @@
         input:checked + .slider { background-color: var(--bloom-green); }
         input:checked + .slider:before { transform: translateX(18px); }
 
-        /* Keypad Styles */
         .keypad-container {
             background: var(--bloom-card-bg);
             border: 1px solid var(--bloom-cream);
@@ -157,7 +154,6 @@
         .kp-btn.action-call:active { background: var(--bloom-dark-green); }
         .kp-btn.action-del { background: #fef2f2; color: var(--bloom-red); border: 1px solid #fee2e2; }
 
-        /* Queue Control & Cards */
         .control-panel { 
             background: var(--bloom-card-bg); 
             border: 1px solid var(--bloom-cream); 
@@ -169,7 +165,7 @@
         .status-header { display: flex; justify-content: space-between; align-items: center; }
         .calling-big { font-size: 1.5rem; font-weight: 700; color: var(--bloom-yellow); }
 
-        .queue-list { display: flex; flex-direction: column; gap: 8px; max-height: 35vh; overflow-y: auto; }
+        .queue-list { display: flex; flex-direction: column; gap: 8px; }
         .q-card { 
             background: var(--bloom-card-bg); 
             border: 1px solid var(--bloom-cream); 
@@ -180,8 +176,10 @@
             align-items: center; 
         }
         .q-card.calling { border: 2px solid var(--bloom-green); background: #f4f6f3; }
+        .q-card.completed { opacity: 0.65; background: #fafafa; border-color: #eee; }
 
-        /* TV Display Styles */
+        .q-actions { display: flex; gap: 6px; align-items: center; }
+
         .tv-container { text-align: center; padding: 24px 12px; }
         .tv-title { font-size: 1.1rem; color: var(--text-muted); letter-spacing: 2px; }
         .tv-number-big { font-size: 6.5rem; font-weight: 700; color: var(--bloom-green); line-height: 1.1; margin: 15px 0; }
@@ -217,7 +215,6 @@
         <!-- Keypad Page -->
         <div id="keypad-sys" class="page-section active">
 
-            <!-- Panel ตั้งค่าภาษาประกาศเสียง -->
             <div class="settings-panel">
                 <div class="settings-title"><i class="fa-solid fa-volume-high"></i> ตั้งค่าภาษาประกาศเสียง</div>
                 <div class="lang-toggle-group">
@@ -285,6 +282,8 @@
                 <p style="margin-bottom:12px; color:var(--text-muted); font-size:0.9rem;">รวมเรียกคิวทั้งหมด: <b id="rpt-total" style="color:var(--bloom-dark-green); font-size:1.1rem;">0</b> ครั้ง</p>
                 <button onclick="resetHistory()" style="background:#fef2f2; color:var(--bloom-red); border:1px solid #fee2e2; padding:8px 16px; border-radius:12px; font-weight:600; cursor:pointer; font-size:0.85rem;"><i class="fa-solid fa-trash"></i> ล้างประวัติทั้งหมด</button>
             </div>
+            
+            <div class="queue-list" id="history-item-container"></div>
         </div>
     </div>
 
@@ -293,7 +292,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // Firebase Configuration
         const firebaseConfig = {
             apiKey: "AIzaSyCEPpKr7__jLR9moZ2mzwAaUkNGi7ysgaU",
             authDomain: "queue-bloom-event.firebaseapp.com",
@@ -312,33 +310,37 @@
         let currentCalling = "---";
         let isInitialLoad = true;
 
-        // Sync ข้อมูลแบบ Realtime ข้ามทุกเครื่อง
+        // Sync ข้อมูลแบบ Realtime
         onSnapshot(queueDocRef, (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 const newCalling = data.currentCalling || "---";
-                
-                // หากมีการขานคิวใหม่เข้ามา ให้พูดออกเสียง
-                if (!isInitialLoad && newCalling !== "---" && newCalling !== currentCalling) {
-                    window.speak(newCalling);
+                const lastAction = data.lastAction || "";
+
+                // พูดออกเสียงเฉพาะการกดปุ่ม "เรียกคิวใหม่" หรือ "เรียกซ้ำ" เท่านั้น
+                if (!isInitialLoad && (lastAction === 'call' || lastAction === 'repeat')) {
+                    if (newCalling !== "---") {
+                        window.speak(newCalling);
+                    }
                 }
 
                 currentCalling = newCalling;
                 callHistory = data.callHistory || [];
                 window.updateUI();
             } else {
-                saveToFirestore("---", []);
+                saveToFirestore("---", [], "");
             }
             isInitialLoad = false;
         }, (error) => {
             console.error("Firestore Error: ", error);
         });
 
-        async function saveToFirestore(callingNum, historyList) {
+        async function saveToFirestore(callingNum, historyList, actionType = "") {
             try {
                 await setDoc(queueDocRef, {
                     currentCalling: callingNum,
                     callHistory: historyList,
+                    lastAction: actionType,
                     updatedAt: new Date().toISOString()
                 });
             } catch (error) {
@@ -346,7 +348,6 @@
             }
         }
 
-        // ฟังก์ชันสลับหน้า
         window.switchPage = function(pageId, evt) {
             document.querySelectorAll('.page-section').forEach(el => el.classList.remove('active'));
             document.getElementById(pageId).classList.add('active');
@@ -371,6 +372,7 @@
             document.getElementById('kp-input').innerText = inputVal || "---";
         };
 
+        // กดปุ่มประกาศคิว -> ส่ง action เป็น 'call'
         window.callKeypadNum = function() {
             if (!inputVal) return alert('กรุณาระบุตัวเลขคิว');
 
@@ -378,18 +380,31 @@
             const newHistory = [
                 {
                     number: formattedNum,
-                    time: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+                    status: 'calling',
+                    callTime: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
+                    pickupTime: null
                 },
                 ...callHistory
             ];
 
-            saveToFirestore(formattedNum, newHistory);
+            saveToFirestore(formattedNum, newHistory, 'call');
             window.clearInput();
         };
 
-        window.repeatCall = function() {
-            if (currentCalling !== "---") {
-                window.speak(currentCalling);
+        // กดปุ่มรับสินค้า -> ส่ง action เป็น 'complete' (เงียบ ไม่มีเสียง)
+        window.completeQueue = function(index) {
+            if (callHistory[index]) {
+                callHistory[index].status = 'completed';
+                callHistory[index].pickupTime = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+                saveToFirestore(currentCalling, callHistory, 'complete');
+            }
+        };
+
+        // กดปุ่มเรียกซ้ำ -> ส่ง action เป็น 'repeat'
+        window.repeatCall = function(num = null) {
+            const targetNum = num || currentCalling;
+            if (targetNum !== "---") {
+                saveToFirestore(targetNum, callHistory, 'repeat');
             } else {
                 alert('ยังไม่มีคิวถูกเรียก');
             }
@@ -397,7 +412,7 @@
 
         window.resetHistory = function() {
             if (confirm('ต้องการล้างประวัติการเรียกคิวใช่หรือไม่?')) {
-                saveToFirestore("---", []);
+                saveToFirestore("---", [], 'reset');
             }
         };
 
@@ -426,6 +441,30 @@
             }
         };
 
+        function renderCardHTML(q, index) {
+            const isCompleted = q.status === 'completed';
+            const timeInfo = isCompleted 
+                ? `เรียกเมื่อ ${q.callTime} • <b style="color:var(--bloom-green);">รับสินค้าเมื่อ ${q.pickupTime || '-'}</b>` 
+                : `เรียกเมื่อ ${q.callTime}`;
+
+            return `
+                <div>
+                    <b style="color:var(--bloom-dark-green)">หมายเลข ${q.number}</b>
+                    <div style="font-size:0.75rem; color:var(--text-muted);">${timeInfo}</div>
+                </div>
+                <div class="q-actions">
+                    ${!isCompleted ? `
+                        <button onclick="completeQueue(${index})" style="background:var(--bloom-green); color:#fff; border:none; padding:5px 10px; border-radius:12px; font-size:0.8rem; font-weight:600; cursor:pointer;">
+                            <i class="fa-solid fa-check"></i> รับสินค้าแล้ว
+                        </button>
+                    ` : ''}
+                    <button onclick="repeatCall('${q.number}')" style="background:var(--bloom-bg); color:var(--bloom-dark-green); border:1px solid var(--bloom-cream); padding:5px 10px; border-radius:12px; font-size:0.8rem; font-weight:600; cursor:pointer;">
+                        เรียกซ้ำ
+                    </button>
+                </div>
+            `;
+        }
+
         window.updateUI = function() {
             document.getElementById('current-call-display').innerText = currentCalling;
             document.getElementById('tv-current-q').innerText = currentCalling;
@@ -433,22 +472,27 @@
             const prevList = callHistory.slice(1, 4).map(h => h.number).join(', ');
             document.getElementById('tv-prev-q').innerText = prevList || "---";
 
-            const container = document.getElementById('queue-item-container');
-            container.innerHTML = '';
+            const mainContainer = document.getElementById('queue-item-container');
+            mainContainer.innerHTML = '';
+            const activeQueues = callHistory.slice(0, 5);
+
+            activeQueues.forEach((q, index) => {
+                const div = document.createElement('div');
+                const isCompleted = q.status === 'completed';
+                div.className = `q-card ${index === 0 ? 'calling' : ''} ${isCompleted ? 'completed' : ''}`;
+                div.innerHTML = renderCardHTML(q, index);
+                mainContainer.appendChild(div);
+            });
+
+            const historyContainer = document.getElementById('history-item-container');
+            historyContainer.innerHTML = '';
 
             callHistory.forEach((q, index) => {
                 const div = document.createElement('div');
-                div.className = `q-card ${index === 0 ? 'calling' : ''}`;
-                div.innerHTML = `
-                    <div>
-                        <b style="color:var(--bloom-dark-green)">หมายเลข ${q.number}</b>
-                        <div style="font-size:0.75rem; color:var(--text-muted);">เรียกเมื่อ ${q.time}</div>
-                    </div>
-                    <div>
-                        <button onclick="speak('${q.number}')" style="background:var(--bloom-bg); color:var(--bloom-dark-green); border:1px solid var(--bloom-cream); padding:5px 12px; border-radius:12px; font-size:0.8rem; font-weight:600; cursor:pointer;">เรียกซ้ำ</button>
-                    </div>
-                `;
-                container.appendChild(div);
+                const isCompleted = q.status === 'completed';
+                div.className = `q-card ${isCompleted ? 'completed' : ''}`;
+                div.innerHTML = renderCardHTML(q, index);
+                historyContainer.appendChild(div);
             });
 
             document.getElementById('rpt-total').innerText = callHistory.length;
